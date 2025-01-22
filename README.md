@@ -29,6 +29,113 @@
 - The Mediator pattern works well with CQRS by coordinating commands (write) and queries (read). This separation and coordination result in a cleaner, more maintainable, and scalable system.
 
   ![image](https://github.com/user-attachments/assets/a74591a5-0800-4264-8eae-1af0510ad0b7)
+
+
+# Unit of Work
+- The Unit of Work pattern is a design pattern that revolves around managing database transactions and coordinating changes across multiple entities within an application, this pattern acts as a bridge between the business logic and the data access layer
+- This pattern is particularly useful in applications where multiple database operations, such as inserts, updates, and deletes,
+- This results in cleaner, more maintainable, and scalable code.
+
+- lets create a Product Model
+    ```csharp
+    public class Product
+    {
+        public int Id { get; set; }
+        public string Name{ get; set; }
+        public string Description { get; set; }
+        public string Barcode { get; set; }
+        public decimal Rate { get; set; }
+        public DateTime AddedOn { get; set; }
+        public DateTime ModifiedOn { get; set; }
+    }
+    ```
+- Create a New Generic Type Interfaces
+
+   ```csharp
+   public interface IGenericRepository<T> where T : class
+    {
+        Task<T> GetByIdAsync(int id);
+        Task<IReadOnlyList<T>> GetAllAsync();
+        Task<int> AddAsync(T entity);
+        Task<int> UpdateAsync(T entity);
+        Task<int> DeleteAsync(int id);
+    }
+   ```
+- Now that we have a generic Interface, let’s build the product Specific Repository Interface. Add a new interface and name it IProductRepository. We will Inherit the IGenericRepository Interface with T as the Product.
+   ```csharp
+   public interface IProductRepository : IGenericRepository<Product>
+    {
+    }
+   ```
+- Finally, add the last Interface, IUnitOfWork.
+  ```csharp
+  public interface IUnitOfWork
+    {
+        IProductRepository  Products { get; }
+    }
+  ```
+- Let’s implement the IUnitOfWork. Create a new class, UnitOfWork, and inherit from the interface IUnitOfWork.
+   ```csharp
+   public class UnitOfWork : IUnitOfWork
+    {
+        public UnitOfWork(IProductRepository productRepository)
+        {
+            Products = productRepository;
+        }
+        public IProductRepository Products { get; }
+    }
+   ```
+- Register these interfaces with the implementations
+  ```csharp
+  services.AddTransient<IProductRepository, ProductRepository>();
+  services.AddTransient<IUnitOfWork, UnitOfWork>();
+  ```
+
+- Add a new Controller
+   ```csharp
+   [Route("api/[controller]")]
+    [ApiController]
+    public class ProductController : ControllerBase
+    {
+        private readonly IUnitOfWork unitOfWork;
+        public ProductController(IUnitOfWork unitOfWork)
+        {
+            this.unitOfWork = unitOfWork;
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var data = await unitOfWork.Products.GetAllAsync();
+            return Ok (data);
+        }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var data = await unitOfWork.Products.GetByIdAsync(id);
+            if (data == null) return Ok();
+            return Ok(data);
+        }
+        [HttpPost]
+        public async Task<IActionResult> Add(Product product)
+        {
+            var data = await unitOfWork.Products.AddAsync(product);
+            return Ok(data);
+        }
+        [HttpDelete]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var data = await unitOfWork.Products.DeleteAsync(id);
+            return Ok(data);
+        }
+        [HttpPut]
+        public async Task<IActionResult> Update(Product product)
+        {
+            var data = await unitOfWork.Products.UpdateAsync(product);
+            return Ok(data);
+        }
+    }
+   ```
+  - Here we will just define the IUnitOfWork and inject it into the Controller’s constructor. After that, we create separate Action Methods for each CRUD operation and use the unit of work object. That’s it for the implementation.
 <!-- 
 
 - As we know, in our application we mostly use a single data model to read and write data, which will work fine and perform CRUD operations easily. But, when the application becomes a vast in that case, our queries return different types of data as an object so that become hard to manage with different DTO objects. Also, the same model is used to perform a write operation. As a result, the model becomes complex.
