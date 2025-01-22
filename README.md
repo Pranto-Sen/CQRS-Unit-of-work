@@ -43,10 +43,9 @@
         public int Id { get; set; }
         public string Name{ get; set; }
         public string Description { get; set; }
-        public string Barcode { get; set; }
-        public decimal Rate { get; set; }
-        public DateTime AddedOn { get; set; }
-        public DateTime ModifiedOn { get; set; }
+        public decimal Price { get; set; }
+        public DateTime Create_At { get; set; }
+        public DateTime Update_At { get; set; }
     }
     ```
 - Create a New Generic Type Interfaces
